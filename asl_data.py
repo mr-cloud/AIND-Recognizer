@@ -53,6 +53,9 @@ class AslDb(object):
         :param csvfilename: str
         :return: WordsData object
             dictionary of lists of feature list sequence lists for each word
+            # There are multiple examples for each world. And each example is an output sequence.
+            # And each output point of this sequence is a vector for a feature list.
+            # Therefore, we got a triple-recursive lists value for each word.
                 {'FRANK': [[[87, 225], [87, 225], ...], [[88, 219], [88, 219], ...]]]}
         """
         return WordsData(self, csvfilename, feature_list)
@@ -139,7 +142,7 @@ class WordsData(object):
         """ getter for single word series of sequences of feature lists for each frame
 
         :param word: str
-        :return: list
+        :return: list triple-recursive lists
             lists of feature list sequence lists for given word
                 [[[87, 225], [87, 225], ...], [[88, 219], [88, 219], ...]]]
         """
@@ -149,8 +152,8 @@ class WordsData(object):
         """ getter for single word (X, lengths) tuple for use with hmmlearn library
 
         :param word:
-        :return: (list, list)
-            (X, lengths) tuple, where X is a numpy array of feature lists and lengths is
+        :return: (list, list) double-recursive lists + length separation
+            (X, lengths) tuple, where X is a numpy array of feature lists (concatenation of all the sequences) and lengths is
             a list of lengths of sequences within X
                 (array([[ 87, 225],[ 87, 225], ...  [ 87, 225,  62, 127], [ 87, 225,  65, 128]]), [14, 18])
         """

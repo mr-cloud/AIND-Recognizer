@@ -29,6 +29,7 @@ class ModelSelector(object):
         self.verbose = verbose
 
     def select(self):
+        # print('This is ModelSelector select() method.')
         raise NotImplementedError
 
     def base_model(self, num_states):
@@ -77,7 +78,27 @@ class SelectorBIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection based on BIC scores
-        raise NotImplementedError
+        best_score = float('inf')
+        best_model = None
+        for num_states in range(self.min_n_components, self.max_n_components + 1):
+            try:
+                score = float('inf')
+                cur_model = self.base_model(num_states)
+                if cur_model is not None:
+                    # Number of parameters: #transition + #output
+                    p = num_states * len(self.X[0]) + num_states**2
+                    # Number of data points (one features list is a data point.)
+                    N = len(self.X)
+                    score = -2 * cur_model.score(self.X, self.lengths) + p*np.log(N)
+                if score < best_score:
+                    best_model = cur_model
+                    best_score = score
+            except:
+                if self.verbose:
+                    print("failure on {} with {} states".format(self.this_word, num_states))
+
+        return best_model
+
 
 
 class SelectorDIC(ModelSelector):
@@ -90,10 +111,32 @@ class SelectorDIC(ModelSelector):
     '''
 
     def select(self):
+
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection based on DIC scores
-        raise NotImplementedError
+        # DIC approximated version.
+        best_score = float('-inf')
+        best_model = None
+        for num_states in range(self.min_n_components, self.max_n_components + 1):
+            try:
+                score = float('-inf')
+                cur_model = self.base_model(num_states)
+                if cur_model is not None:
+                    score = cur_model.score(self.X, self.lengths)
+                    similarities = list()
+                    for word, (X, lengths) in self.hwords.items():
+                        if word != self.this_word:
+                            similarities.append(cur_model.score(X, lengths))
+                    score -= np.mean(similarities)
+                if score > best_score:
+                    best_model = cur_model
+                    best_score = score
+            except:
+                if self.verbose:
+                    print("failure on {} with {} states".format(self.this_word, num_states))
+
+        return best_model
 
 
 class SelectorCV(ModelSelector):
@@ -102,7 +145,35 @@ class SelectorCV(ModelSelector):
     '''
 
     def select(self):
+        # print('This is SelectorCV select() method.')
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection using CV
-        raise NotImplementedError
+        best_score = float('-inf')
+        best_model = None
+        split_method = KFold()
+        for num_states in range(self.min_n_components, self.max_n_components + 1):
+            try:
+                self.X, self.lengths = self.hwords[self.this_word]
+                scores = list()
+                if len(self.sequences) < 3:
+                    cur_model = self.base_model(num_states)
+                    if cur_model is not None:
+                        scores.append(cur_model.score(self.X, self.lengths))
+                else:
+                    for cv_train_idx, cv_test_idx in split_method.split(self.sequences):
+                        self.X, self.lengths = combine_sequences(cv_train_idx, self.sequences)
+                        test_X, test_lengths = combine_sequences(cv_train_idx, self.sequences)
+                        cur_model = self.base_model(num_states)
+                        if cur_model is not None:
+                            scores.append(cur_model.score(test_X, test_lengths))
+                if len(scores) != 0 and np.mean(scores) > best_score:
+                    # Return all-in trained model.
+                    self.X, self.lengths = self.hwords[self.this_word]
+                    best_model = self.base_model(num_states)
+                    best_score = np.mean(scores)
+            except:
+                if self.verbose:
+                    print("failure on {} with {} states".format(self.this_word, num_states))
+
+        return best_model
